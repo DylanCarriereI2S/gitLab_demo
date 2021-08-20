@@ -26,6 +26,7 @@ resource "random_pet" "lambda_bucket_name" {
   length = 4
 }
 
+# Bucket to upload lambda code
 resource "aws_s3_bucket" "lambda_bucket" {
   bucket = random_pet.lambda_bucket_name.id
 
@@ -33,6 +34,7 @@ resource "aws_s3_bucket" "lambda_bucket" {
   force_destroy = true
 }
 
+# Create backend zip file code to upload s3
 data "archive_file" "lambdas_code" {
   type = "zip"
 
@@ -40,6 +42,7 @@ data "archive_file" "lambdas_code" {
   output_path = "${path.module}/backend/code.zip"
 }
 
+# Create DynamoDB table "Todo"
 resource "aws_dynamodb_table" "todo_database" {
   name             = "todoDatabase"
   hash_key         = "PK"
@@ -54,6 +57,7 @@ resource "aws_dynamodb_table" "todo_database" {
 
 }
 
+# Create one item in the Table
 resource "aws_dynamodb_table_item" "first_todo" {
   table_name = aws_dynamodb_table.todo_database.name
   hash_key   = aws_dynamodb_table.todo_database.hash_key
@@ -67,6 +71,7 @@ resource "aws_dynamodb_table_item" "first_todo" {
 ITEM
 }
 
+# Upload backend lambda code to S3 
 resource "aws_s3_bucket_object" "backend_code" {
   bucket = aws_s3_bucket.lambda_bucket.id
 
@@ -76,6 +81,7 @@ resource "aws_s3_bucket_object" "backend_code" {
   etag = filemd5(data.archive_file.lambdas_code.output_path)
 }
 
+# Create lambda getTodos
 resource "aws_lambda_function" "get-todos" {
   function_name = "GetTodos"
 
@@ -96,6 +102,7 @@ resource "aws_lambda_function" "get-todos" {
   }
 }
 
+# Create lambda postTodos
 resource "aws_lambda_function" "post-todo" {
   function_name = "PostTodo"
 
@@ -116,6 +123,7 @@ resource "aws_lambda_function" "post-todo" {
   }
 }
 
+# Create lambda deleteTodos
 resource "aws_lambda_function" "delete-todo" {
   function_name = "DeleteTodo"
 
@@ -136,12 +144,7 @@ resource "aws_lambda_function" "delete-todo" {
   }
 }
 
-resource "aws_cloudwatch_log_group" "hello_world" {
-  name = "/aws/lambda/${aws_lambda_function.get-todos.function_name}"
-
-  retention_in_days = 30
-}
-
+# Create backend lambda role
 resource "aws_iam_role" "lambda_exec" {
   name = "serverless_lambda"
 
@@ -159,6 +162,7 @@ resource "aws_iam_role" "lambda_exec" {
   })
 }
 
+# Create Database policy for Todo table
 resource "aws_iam_policy" "database_policy" {
   name        = "todoDatabasePolicy"
 
@@ -181,21 +185,25 @@ resource "aws_iam_policy" "database_policy" {
 EOF
 }
 
+# Attach policy to the Iam role
 resource "aws_iam_role_policy_attachment" "lambda_policy" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Attach policy to the Iam role
 resource "aws_iam_role_policy_attachment" "tado_Database_policy" {
   role       = aws_iam_role.lambda_exec.name
   policy_arn = aws_iam_policy.database_policy.arn
 }
 
+# Create API Gateway
 resource "aws_apigatewayv2_api" "lambda" {
   name          = "serverless_lambda_gw"
   protocol_type = "HTTP"
 }
 
+# Create API Gateway stage
 resource "aws_apigatewayv2_stage" "lambda" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -221,6 +229,7 @@ resource "aws_apigatewayv2_stage" "lambda" {
   }
 }
 
+# Create API Gateway integration
 resource "aws_apigatewayv2_integration" "get-todos" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -229,6 +238,7 @@ resource "aws_apigatewayv2_integration" "get-todos" {
   integration_method = "POST"
 }
 
+# Create API Gateway integration
 resource "aws_apigatewayv2_integration" "post-todo" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -237,6 +247,7 @@ resource "aws_apigatewayv2_integration" "post-todo" {
   integration_method = "POST"
 }
 
+# Create API Gateway integration
 resource "aws_apigatewayv2_integration" "delete-todo" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -245,7 +256,7 @@ resource "aws_apigatewayv2_integration" "delete-todo" {
   integration_method = "POST"
 }
 
-
+# Create API Gateway route
 resource "aws_apigatewayv2_route" "get-todos" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -253,6 +264,7 @@ resource "aws_apigatewayv2_route" "get-todos" {
   target    = "integrations/${aws_apigatewayv2_integration.get-todos.id}"
 }
 
+# Create API Gateway integration
 resource "aws_apigatewayv2_route" "post-todo" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -260,6 +272,7 @@ resource "aws_apigatewayv2_route" "post-todo" {
   target    = "integrations/${aws_apigatewayv2_integration.post-todo.id}"
 }
 
+# Create API Gateway integration
 resource "aws_apigatewayv2_route" "delete-todo" {
   api_id = aws_apigatewayv2_api.lambda.id
 
@@ -267,12 +280,14 @@ resource "aws_apigatewayv2_route" "delete-todo" {
   target    = "integrations/${aws_apigatewayv2_integration.delete-todo.id}"
 }
 
+# Create API Gateway integration
 resource "aws_cloudwatch_log_group" "api_gw" {
   name = "/aws/api_gw/${aws_apigatewayv2_api.lambda.name}"
 
   retention_in_days = 30
 }
 
+# Create API Gateway trigger for lambda
 resource "aws_lambda_permission" "api_gw_getTodos" {
   statement_id  = "AllowExecutionFromAPIGatewayGetTodos"
   action        = "lambda:InvokeFunction"
@@ -282,6 +297,7 @@ resource "aws_lambda_permission" "api_gw_getTodos" {
   source_arn = "${aws_apigatewayv2_api.lambda.execution_arn}/*/*"
 }
 
+# Create API Gateway trigger for lambda
 resource "aws_lambda_permission" "api_gw_postTodo" {
   statement_id  = "AllowExecutionFromAPIGatewayPostTodo"
   action        = "lambda:InvokeFunction"
@@ -291,6 +307,7 @@ resource "aws_lambda_permission" "api_gw_postTodo" {
   source_arn = "${aws_apigatewayv2_api.lambda.execution_arn}/*/*"
 }
 
+# Create API Gateway trigger for lambda
 resource "aws_lambda_permission" "api_gw_deleteTodo" {
   statement_id  = "AllowExecutionFromAPIGatewayDeleteTodo"
   action        = "lambda:InvokeFunction"
@@ -300,13 +317,13 @@ resource "aws_lambda_permission" "api_gw_deleteTodo" {
   source_arn = "${aws_apigatewayv2_api.lambda.execution_arn}/*/*"
 }
 
-# data "external" "frontend_build" {
-#   program = ["bash", "-c", <<EOT
-# (npm ci && npm run build -- --env.PARAM="$(jq -r '.param')") >&2 && echo "{\"dest\": \"dist\"}"
-#   EOT
-#   ]
-#   working_dir = "${path.module}/frontend/todolistapp-v1"
-#   query = {
-#     param = "Hi from Terraform!"
-#   }
-# }
+# Edit 'environements.terraform.ts' file to pass API URL to frontend 
+resource "local_file" "environment_frontend_apiurl" {
+  content     = <<EOF
+  export const environment = {
+    production: false,
+    apiUrl: '${aws_apigatewayv2_stage.lambda.invoke_url}'
+  };
+  EOF
+  filename = "${path.module}/frontend/todolistapp-v1/src/environments/environements.terraform.ts"
+}

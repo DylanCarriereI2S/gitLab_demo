@@ -12,4 +12,6 @@ RUN git clone https://github.com/hashicorp/terraform.git ./ && \
     git checkout v${TERRAFORM_VERSION} && \
     /bin/bash scripts/build.sh
 
+RUN npm install -g @angular/cli@12.2.1
+
 WORKDIR /code

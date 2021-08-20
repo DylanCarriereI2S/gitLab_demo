@@ -1,5 +1,5 @@
 export type Todo = {
-    id: string;
+    PK: string;
     content: string;
     completed: boolean;
 }

@@ -24,7 +24,7 @@ export class TodosComponent implements OnInit {
   }
 
   getTodos() {
-    this.http.get<any>(`${environment.apiUrl}/get-todos`).subscribe(data => {
+    this.http.get<any>(`${environment.apiUrl}/todo`).subscribe(data => {
       console.log(data.todoList);
       data.todoList.forEach((element: Todo) => {
         this.todos.push(element);
@@ -35,7 +35,7 @@ export class TodosComponent implements OnInit {
   toggleDone(id:number) {
     // need to call the db and modify the todo
     let todoPost = this.todos[id];
-    this.http.post<any>(`${environment.apiUrl}/post-todo`, { "PK": todoPost.id, "content": todoPost.content, "completed": !todoPost.completed }).subscribe(data => {
+    this.http.post<any>(`${environment.apiUrl}/todo`, { "PK": todoPost.PK, "content": todoPost.content, "completed": !todoPost.completed }).subscribe(data => {
       console.log(data);
     })
 
@@ -50,7 +50,7 @@ export class TodosComponent implements OnInit {
     // need to call the db and mdelete the todo
     let todoDeleted = this.todos[id];
     this.todos = this.todos.filter((v,i) => i !== id);
-    this.http.delete<any>(`${environment.apiUrl}/delete-todo?todo=${todoDeleted.id}`).subscribe(data => {
+    this.http.delete<any>(`${environment.apiUrl}/todo?todo=${todoDeleted.PK}`).subscribe(data => {
       console.log(data);
     })
   }
@@ -60,12 +60,12 @@ export class TodosComponent implements OnInit {
     if(this.inputTodo != ""){
       let myId = UUID.UUID();
       this.todos.push({
-        id: myId,
+        PK: myId,
         content:this.inputTodo,
         completed: false
       });
 
-      this.http.post<any>(`${environment.apiUrl}/post-todo`, { "PK": myId, "content":this.inputTodo, "completed": false }).subscribe(data => {
+      this.http.post<any>(`${environment.apiUrl}/todo`, { "PK": myId, "content":this.inputTodo, "completed": false }).subscribe(data => {
         console.log(data);
       })
 

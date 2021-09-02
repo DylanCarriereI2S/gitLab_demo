@@ -21,14 +21,9 @@ provider "aws" {
   region = var.aws_region
 }
 
-resource "random_pet" "lambda_bucket_name" {
-  prefix = "learn-terraform-functions"
-  length = 4
-}
-
 # Bucket to upload lambda code
 resource "aws_s3_bucket" "lambda_bucket" {
-  bucket = random_pet.lambda_bucket_name.id
+  bucket = "${local.prefix}-lambda-bucket"
 
   acl           = "private"
   force_destroy = true
@@ -44,7 +39,7 @@ data "archive_file" "lambdas_code" {
 
 # Create DynamoDB table "Todo"
 resource "aws_dynamodb_table" "todo_database" {
-  name             = "todoDatabase"
+  name             = "${local.prefix}-todo-database"
   hash_key         = "PK"
   billing_mode     = "PAY_PER_REQUEST"
   stream_enabled   = true
@@ -83,7 +78,7 @@ resource "aws_s3_bucket_object" "backend_code" {
 
 # Create lambda getTodos
 resource "aws_lambda_function" "get-todos" {
-  function_name = "GetTodos"
+  function_name = "${local.prefix}-GetTodos"
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = aws_s3_bucket_object.backend_code.key
@@ -104,7 +99,7 @@ resource "aws_lambda_function" "get-todos" {
 
 # Create lambda postTodos
 resource "aws_lambda_function" "post-todo" {
-  function_name = "PostTodo"
+  function_name = "${local.prefix}-PostTodo"
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = aws_s3_bucket_object.backend_code.key
@@ -125,7 +120,7 @@ resource "aws_lambda_function" "post-todo" {
 
 # Create lambda deleteTodos
 resource "aws_lambda_function" "delete-todo" {
-  function_name = "DeleteTodo"
+  function_name = "${local.prefix}-DeleteTodo"
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = aws_s3_bucket_object.backend_code.key
@@ -145,7 +140,7 @@ resource "aws_lambda_function" "delete-todo" {
 }
 
 resource "aws_lambda_function" "option-todo" {
-  function_name = "OptionTodo"
+  function_name = "${local.prefix}-OptionTodo"
 
   s3_bucket = aws_s3_bucket.lambda_bucket.id
   s3_key    = aws_s3_bucket_object.backend_code.key
@@ -161,7 +156,7 @@ resource "aws_lambda_function" "option-todo" {
 
 # Create backend lambda role
 resource "aws_iam_role" "lambda_exec" {
-  name = "serverless_lambda"
+  name = "${local.prefix}-lambda"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -179,7 +174,7 @@ resource "aws_iam_role" "lambda_exec" {
 
 # Create Database policy for Todo table
 resource "aws_iam_policy" "database_policy" {
-  name        = "todoDatabasePolicy"
+  name        = "${local.prefix}-todoDatabasePolicy"
 
   policy = <<EOF
 {
@@ -214,7 +209,7 @@ resource "aws_iam_role_policy_attachment" "tado_Database_policy" {
 
 # Create API Gateway
 resource "aws_apigatewayv2_api" "lambda" {
-  name          = "serverless_lambda_gw"
+  name          = "${local.prefix}-serverless-lambda-gw"
   protocol_type = "HTTP"
 }
 
@@ -367,4 +362,16 @@ resource "local_file" "environment_frontend_apiurl" {
   };
   EOF
   filename = "${path.module}/frontend/todolistapp-v1/src/environments/environements.terraform.ts"
+}
+
+data "external" "frontend_build" {
+	program = ["bash", "-c", <<EOT
+(npm run build --prefix frontend/todolistapp-v1 --env.PARAM="$(jq -r '.param')") >&2 && echo "{\"dest\": \"dist\"}"
+EOT
+]
+}
+
+resource "aws_s3_bucket" "frontend_bucket" {
+  bucket = "${local.prefix}-frontend-bucket"
+	force_destroy = "true"
 }
